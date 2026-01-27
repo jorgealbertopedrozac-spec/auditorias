@@ -16,34 +16,36 @@
         .filter-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
         .filter-group label { display: block; font-size: 0.7rem; font-weight: bold; color: #666; margin-bottom: 4px; }
         select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em; outline: none; }
-        select:focus { border-color: var(--accent); }
 
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
         .score-big { font-size: 3.5em; font-weight: bold; text-align: center; margin: 10px 0; }
         
-        /* Barras de Proceso */
-        .bar-container { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 0.85em; }
-        .bar-label { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .bar-bg { flex: 1; background: #eee; height: 10px; border-radius: 5px; overflow: hidden; }
+        /* --- BARRAS DE PROCESO RESPONSIVAS --- */
+        .bar-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 0.85em; flex-wrap: wrap; }
+        .bar-label { flex: 1 1 100%; font-weight: 600; color: var(--primary); margin-bottom: 2px; }
+        .bar-bg { flex: 1; background: #eee; height: 12px; border-radius: 6px; overflow: hidden; min-width: 150px; }
         .bar-fill { height: 100%; transition: 0.8s ease-in-out; }
+        .bar-percentage { font-weight: bold; width: 40px; text-align: right; }
 
-        /* Tabla */
+        /* Media query para pantallas más grandes (Desktop) */
+        @media (min-width: 600px) {
+            .bar-container { flex-wrap: nowrap; }
+            .bar-label { flex: 0 0 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0; }
+        }
+
         .table-container { background: white; border-radius: 12px; overflow-x: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 600px; }
         th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 0.75em; color: #7f8c8d; text-transform: uppercase; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 0.9em; cursor: pointer; }
         tr:hover { background: #f1f8ff; }
 
-        /* Modal */
         .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-        .modal-content { background: white; margin: 2% auto; padding: 25px; width: 90%; max-width: 850px; border-radius: 20px; max-height: 85vh; overflow-y: auto; position: relative; }
+        .modal-content { background: white; margin: 2% auto; padding: 25px; width: 95%; max-width: 850px; border-radius: 20px; max-height: 90vh; overflow-y: auto; position: relative; }
         .close-modal { position: sticky; top: 0; float: right; border: none; background: #fdeaea; color: var(--danger); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
-        .img-evidencia { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; margin: 8px 8px 0 0; cursor: pointer; border: 2px solid #eee; transition: 0.2s; }
-        .img-evidencia:hover { border-color: var(--accent); transform: scale(1.05); }
-
+        .img-evidencia { width: 100px; height: 100px; object-fit: cover; border-radius: 10px; margin: 5px; cursor: pointer; border: 2px solid #eee; }
         .btn-regresar { text-decoration: none; font-weight: bold; color: var(--primary); display: flex; align-items: center; gap: 5px; }
     </style>
 </head>
@@ -51,13 +53,13 @@
 
 <div class="container">
     <div class="header-historial">
-        <a id="link-regresar" href="index.html" class="btn-regresar">🏠 Menú de Área</a>
+        <a id="link-regresar" href="index.html" class="btn-regresar">🏠 Menú</a>
         <div id="area-display" class="area-badge">Cargando...</div>
     </div>
 
     <div class="filter-card">
         <div class="filter-group"><label>👤 Auditor</label><select id="f-aud" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
-        <div class="filter-group"><label>📍 Unidad/Bodega</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+        <div class="filter-group"><label>📍 Ubicación</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
         <div class="filter-group"><label>📅 Mes</label><select id="f-mes" onchange="aplicarFiltros()"></select></div>
         <div class="filter-group"><label>🗓️ Año</label><input type="number" id="f-anio" onchange="aplicarFiltros()"></div>
     </div>
@@ -68,14 +70,14 @@
             <div style="text-align:center; color:gray; font-size:0.75em; font-weight:bold; letter-spacing: 1px;">CUMPLIMIENTO PROMEDIO</div>
         </div>
         <div class="card">
-            <h4 style="margin-top:0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;">⚠️ Puntos Críticos del Área</h4>
+            <h4 style="margin-top:0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;">⚠️ Puntos Críticos</h4>
             <div id="res-pre"></div>
         </div>
     </div>
 
     <div class="table-container">
         <table>
-            <thead><tr><th>Fecha</th><th>Auditor</th><th>Ubicación/Ruta</th><th>Resultado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Auditor</th><th>Ubicación</th><th>Resultado</th></tr></thead>
             <tbody id="lista-evaluaciones"></tbody>
         </table>
     </div>
@@ -83,8 +85,8 @@
 
 <div id="modalDetalle" class="modal">
     <div class="modal-content">
-        <button class="close-modal" onclick="cerrarModal()">[ CERRAR ]</button>
-        <h3 id="modal-titulo" style="margin-top:0; color: var(--primary);">Detalle de Evaluación</h3>
+        <button class="close-modal" onclick="cerrarModal()">CERRAR</button>
+        <h3 id="modal-titulo" style="margin-top:0; color: var(--primary);">Detalle</h3>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
         <div id="modal-body"></div>
     </div>
@@ -92,19 +94,16 @@
 
 <script>
     const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4Mjt3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4MTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
     const tipoArea = urlParams.get('tipo') || 'almacen';
 
     async function init() {
-        // Personalizar UI según el área
         const badge = document.getElementById('area-display');
-        badge.innerText = `HISTORIAL: ${tipoArea}`;
+        badge.innerText = tipoArea;
         badge.style.background = tipoArea === 'almacen' ? 'var(--success)' : 'var(--reparto)';
-        
-        // Link de regreso al menú correcto
         document.getElementById('link-regresar').href = `menu_area.html?tipo=${tipoArea}`;
 
         const h = new Date();
@@ -112,12 +111,11 @@
         document.getElementById('f-mes').innerHTML = meses.map((m,i)=>`<option value="${i}" ${i==h.getMonth()?'selected':''}>${m}</option>`).join('');
         document.getElementById('f-anio').value = h.getFullYear();
 
-        // Cargar filtros específicos del tipo seleccionado
         const { data: a } = await _supabase.from('auditores').select('*').eq('activo', true).order('nombre');
         const { data: b } = await _supabase.from('bodegas').select('*').eq('tipo', tipoArea).order('nombre');
 
-        document.getElementById('f-aud').innerHTML += a.map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
-        document.getElementById('f-bod').innerHTML += b.map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
+        document.getElementById('f-aud').innerHTML += (a || []).map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
+        document.getElementById('f-bod').innerHTML += (b || []).map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
 
         aplicarFiltros();
     }
@@ -128,7 +126,6 @@
         const ini = new Date(y, m, 1).toISOString();
         const fin = new Date(y, m + 1, 0, 23, 59, 59).toISOString();
 
-        // FILTRO MAESTRO: .eq('tipo', tipoArea) garantiza independencia total
         let q = _supabase.from('evaluaciones').select('*, bodegas!inner(*), auditores(nombre)')
                 .eq('tipo', tipoArea)
                 .gte('fecha', ini).lte('fecha', fin);
@@ -141,18 +138,20 @@
     }
 
     async function renderDashboard(data) {
+        const listContainer = document.getElementById('lista-evaluaciones');
         if(!data || data.length === 0) {
-            document.getElementById('lista-evaluaciones').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay auditorías registradas para este periodo.</td></tr>';
+            listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay datos.</td></tr>';
             document.getElementById('main-score').innerText = "0%";
             document.getElementById('res-pre').innerHTML = "";
             return;
         }
 
         const avg = data.reduce((acc, v)=> acc + v.calificacion_final, 0) / data.length;
-        document.getElementById('main-score').innerText = avg.toFixed(1) + "%";
-        document.getElementById('main-score').style.color = avg >= 90 ? 'var(--success)' : (avg >= 80 ? 'var(--warning)' : 'var(--danger)');
+        const scoreEl = document.getElementById('main-score');
+        scoreEl.innerText = avg.toFixed(1) + "%";
+        scoreEl.style.color = avg >= 90 ? 'var(--success)' : (avg >= 80 ? 'var(--warning)' : 'var(--danger)');
 
-        document.getElementById('lista-evaluaciones').innerHTML = data.map(ev => `
+        listContainer.innerHTML = data.map(ev => `
             <tr onclick="verDetalle('${ev.id}', '${ev.bodegas.nombre}')">
                 <td>${new Date(ev.fecha).toLocaleDateString()}</td>
                 <td>${ev.auditores?.nombre || 'N/A'}</td>
@@ -160,12 +159,11 @@
                 <td style="font-weight:bold; color:${ev.calificacion_final>=90?'var(--success)':'var(--danger)'}">${ev.calificacion_final}%</td>
             </tr>`).join('');
 
-        // Obtener respuestas para detectar debilidades específicas
         const ids = data.map(x => x.id);
         const { data: resp } = await _supabase.from('respuestas').select('cumple, configuracion_preguntas(pregunta)').in('evaluacion_id', ids);
         
         const stats = {};
-        resp.forEach(r => {
+        (resp || []).forEach(r => {
             const p = r.configuracion_preguntas?.pregunta;
             if(!p) return;
             if(!stats[p]) stats[p] = { si:0, n:0 };
@@ -173,39 +171,32 @@
             stats[p].n++;
         });
 
-        // Ordenar de mayor a menor falla
         const sorted = Object.entries(stats).sort((a,b)=> (a[1].si/a[1].n) - (b[1].si/b[1].n)).slice(0, 5);
         document.getElementById('res-pre').innerHTML = sorted.map(([txt, val]) => {
             const p = (val.si/val.n)*100;
             const barColor = p < 70 ? 'var(--danger)' : (p < 90 ? 'var(--warning)' : 'var(--success)');
             return `<div class="bar-container">
-                <div class="bar-label" title="${txt}">${txt}</div>
+                <div class="bar-label">${txt}</div>
                 <div class="bar-bg"><div class="bar-fill" style="width:${p}%; background:${barColor}"></div></div>
-                <div style="font-weight:bold; width:35px;">${p.toFixed(0)}%</div>
+                <div class="bar-percentage">${p.toFixed(0)}%</div>
             </div>`;
         }).join('');
     }
 
     async function verDetalle(id, nombre) {
         const { data } = await _supabase.from('respuestas').select('*, configuracion_preguntas(pregunta, titulo)').eq('evaluacion_id', id);
-        document.getElementById('modal-titulo').innerText = `Detalle Auditoría: ${nombre}`;
+        document.getElementById('modal-titulo').innerText = nombre;
         
         let html = '';
-        data.forEach(r => {
+        (data || []).forEach(r => {
             const fotos = r.foto_url ? r.foto_url.split(',') : [];
-            const statusColor = r.cumple ? 'var(--success)' : 'var(--danger)';
-            const statusIcon = r.cumple ? '✅ CONFORME' : '❌ NO CONFORME';
-
             html += `<div style="padding:15px 0; border-bottom:1px solid #f0f0f0">
-                <p style="margin:0; font-size:1em; color:var(--primary);"><strong>${r.configuracion_preguntas.pregunta}</strong></p>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                    <span style="font-size:0.8em; font-weight:bold; color:${statusColor}">${statusIcon}</span>
-                    <span style="font-size:0.8em; color:#888;">Puntos: ${r.puntos_obtenidos}</span>
-                </div>
-                <p style="font-size:0.85em; color:#555; background:#f9f9f9; padding:8px; border-radius:5px; margin-top:10px;">
-                    <b>Observación:</b> ${r.observaciones || 'Sin comentarios.'}
+                <p><strong>${r.configuracion_preguntas.pregunta}</strong></p>
+                <p style="font-size:0.85em; color:${r.cumple?'var(--success)':'var(--danger)'}">
+                    ${r.cumple?'CONFORME':'NO CONFORME'} | Puntos: ${r.puntos_obtenidos}
                 </p>
-                <div style="display:flex; flex-wrap:wrap; margin-top:10px;">
+                <p style="font-size:0.85em; color:#666;">Obs: ${r.observaciones || '-'}</p>
+                <div style="display:flex; flex-wrap:wrap;">
                     ${fotos.map(f => `<img src="${f}" class="img-evidencia" onclick="window.open('${f}')">`).join('')}
                 </div>
             </div>`;
@@ -215,8 +206,6 @@
     }
 
     function cerrarModal() { document.getElementById('modalDetalle').style.display = 'none'; }
-    
-    // Iniciar
     init();
 </script>
 </body>
