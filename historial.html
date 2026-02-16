@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Historial de Auditoría Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -10,87 +10,75 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
         .container { max-width: 1100px; margin: auto; }
         
+        /* Header y Filtros */
         .header-historial { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .area-badge { color: white; padding: 6px 18px; border-radius: 20px; font-size: 0.85em; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-
         .filter-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
         .filter-group label { display: block; font-size: 0.7rem; font-weight: bold; color: #666; margin-bottom: 4px; }
         select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em; outline: none; }
 
+        /* Dashboard */
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        
         .score-big { font-size: 3.5em; font-weight: bold; text-align: center; margin: 10px 0; }
         
-        /* --- CORRECCIÓN DE PUNTOS CRÍTICOS (BARRAS) --- */
-        .bar-container { 
-            display: flex; 
-            flex-direction: column; /* Cambiamos a columna para dar espacio al texto */
-            gap: 5px; 
-            margin-bottom: 18px; 
-            font-size: 0.9em; 
-        }
-        .bar-label { 
-            font-weight: 600; 
-            color: var(--primary); 
-            line-height: 1.2; 
-            word-wrap: break-word; /* Permite que el texto largo baje de línea */
-        }
-        .bar-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .bar-bg { 
-            flex: 1; 
-            background: #eee; 
-            height: 12px; 
-            border-radius: 6px; 
-            overflow: hidden; 
-        }
+        .bar-container { margin-bottom: 15px; font-size: 0.85em; }
+        .bar-label { display: block; margin-bottom: 5px; color: var(--primary); font-weight: 500; line-height: 1.2; white-space: normal; }
+        .bar-wrapper { display: flex; align-items: center; gap: 10px; }
+        .bar-bg { flex: 1; background: #eee; height: 10px; border-radius: 5px; overflow: hidden; }
         .bar-fill { height: 100%; transition: 0.8s ease-in-out; }
-        .bar-percentage { font-weight: bold; min-width: 35px; text-align: right; font-size: 0.85em; }
+        .bar-percent { font-weight: bold; width: 35px; text-align: right; }
 
-        /* Ajuste para pantallas grandes (Computadora) */
-        @media (min-width: 768px) {
-            .bar-container {
-                flex-direction: row; /* En PC vuelve a ser horizontal */
-                align-items: center;
-            }
-            .bar-label { 
-                flex: 0 0 45%; /* El texto ocupa el 45% del ancho de la tarjeta */
-                margin-bottom: 0;
-            }
-            .bar-wrapper {
-                flex: 1;
-            }
-        }
-
+        /* Tabla */
         .table-container { background: white; border-radius: 12px; overflow-x: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 600px; }
         th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 0.75em; color: #7f8c8d; text-transform: uppercase; border-bottom: 2px solid #eee; }
         td { padding: 15px; border-bottom: 1px solid #eee; font-size: 0.9em; cursor: pointer; }
         tr:hover { background: #f1f8ff; }
 
-        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-        .modal-content { background: white; margin: 2% auto; padding: 25px; width: 95%; max-width: 850px; border-radius: 20px; max-height: 90vh; overflow-y: auto; position: relative; }
-        .close-modal { position: sticky; top: 0; float: right; border: none; background: #fdeaea; color: var(--danger); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        /* Modales */
+        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
+        .modal-content { background: white; margin: 2% auto; padding: 25px; width: 90%; max-width: 850px; border-radius: 20px; max-height: 85vh; overflow-y: auto; position: relative; }
+        .close-modal { position: sticky; top: 0; float: right; border: none; background: #fdeaea; color: var(--danger); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; z-index: 10; }
         
-        .img-evidencia { width: 100px; height: 100px; object-fit: cover; border-radius: 10px; margin: 5px; cursor: pointer; border: 2px solid #eee; }
-        .btn-regresar { text-decoration: none; font-weight: bold; color: var(--primary); display: flex; align-items: center; gap: 5px; }
+        /* Evidencias y Resaltado */
+        .img-evidencia { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; margin: 8px 8px 0 0; cursor: pointer; border: 2px solid #eee; transition: 0.2s; }
+        .img-evidencia:hover { border-color: var(--accent); transform: scale(1.02); }
+        
+        .obs-box { 
+            font-size: 0.85em; padding: 10px; border-radius: 8px; margin-top: 10px; 
+            border-left: 5px solid #ddd; background: #f9f9f9; color: #555; 
+        }
+        /* Estilo para llamar la atención en observaciones con contenido */
+        .obs-highlight { 
+            background: #fff9c4 !important; color: #856404 !important; 
+            border-left-color: #ffc107 !important; border: 1px solid #ffeeba;
+            font-weight: 500;
+        }
+
+        /* VISOR DE FOTOS CON ZOOM */
+        #modalFoto { z-index: 4000; display: none; justify-content: center; align-items: center; background: rgba(0,0,0,0.95); overflow: hidden; touch-action: none; }
+        #modalFoto img { max-width: 90%; max-height: 90vh; border-radius: 5px; cursor: grab; transition: transform 0.1s ease-out; transform-origin: center center; }
+        #modalFoto img:active { cursor: grabbing; }
+        .close-foto { position: absolute; top: 20px; right: 20px; background: white; border: none; padding: 10px 20px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 4001; }
+
+        @media (max-width: 600px) {
+            .score-big { font-size: 2.5em; }
+            .modal-content { width: 95%; padding: 15px; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header-historial">
-        <a id="link-regresar" href="index.html" class="btn-regresar">🏠 Menú</a>
+        <a id="link-regresar" href="#" class="btn-regresar">🏠 Menú de Área</a>
         <div id="area-display" class="area-badge">Cargando...</div>
     </div>
 
     <div class="filter-card">
         <div class="filter-group"><label>👤 Auditor</label><select id="f-aud" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
-        <div class="filter-group"><label>📍 Ubicación</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+        <div class="filter-group"><label>📍 Unidad/Bodega</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
         <div class="filter-group"><label>📅 Mes</label><select id="f-mes" onchange="aplicarFiltros()"></select></div>
         <div class="filter-group"><label>🗓️ Año</label><input type="number" id="f-anio" onchange="aplicarFiltros()"></div>
     </div>
@@ -108,7 +96,7 @@
 
     <div class="table-container">
         <table>
-            <thead><tr><th>Fecha</th><th>Auditor</th><th>Ubicación</th><th>Resultado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Auditor</th><th>Ubicación/Ruta</th><th>Resultado</th></tr></thead>
             <tbody id="lista-evaluaciones"></tbody>
         </table>
     </div>
@@ -116,25 +104,33 @@
 
 <div id="modalDetalle" class="modal">
     <div class="modal-content">
-        <button class="close-modal" onclick="cerrarModal()">CERRAR</button>
-        <h3 id="modal-titulo" style="margin-top:0; color: var(--primary);">Detalle</h3>
+        <button class="close-modal" onclick="cerrarModal()">[ CERRAR ]</button>
+        <h3 id="modal-titulo" style="margin-top:0; color: var(--primary);">Detalle de Evaluación</h3>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
         <div id="modal-body"></div>
     </div>
+</div>
+
+<div id="modalFoto" class="modal">
+    <button class="close-foto" onclick="cerrarFoto()">Cerrar Imagen</button>
+    <img id="fotoGrande" src="" alt="Evidencia">
 </div>
 
 <script>
     const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+	
     const urlParams = new URLSearchParams(window.location.search);
     const tipoArea = urlParams.get('tipo') || 'almacen';
 
+    // Variables de control de Zoom
+    let scale = 1, pointX = 0, pointY = 0, isPanning = false, start = { x: 0, y: 0 };
+
     async function init() {
         const badge = document.getElementById('area-display');
-        badge.innerText = tipoArea;
-        badge.style.background = tipoArea === 'almacen' ? 'var(--success)' : 'var(--reparto)';
+        badge.innerText = `HISTORIAL: ${tipoArea}`;
+        badge.style.background = tipoArea === 'almacen' ? 'var(--success)' : (tipoArea === 'reparto' ? 'var(--reparto)' : '#e67e22');
         document.getElementById('link-regresar').href = `menu_area.html?tipo=${tipoArea}`;
 
         const h = new Date();
@@ -158,8 +154,7 @@
         const fin = new Date(y, m + 1, 0, 23, 59, 59).toISOString();
 
         let q = _supabase.from('evaluaciones').select('*, bodegas!inner(*), auditores(nombre)')
-                .eq('tipo', tipoArea)
-                .gte('fecha', ini).lte('fecha', fin);
+                .eq('tipo', tipoArea).gte('fecha', ini).lte('fecha', fin);
 
         if(document.getElementById('f-aud').value) q = q.eq('auditor_id', document.getElementById('f-aud').value);
         if(document.getElementById('f-bod').value) q = q.eq('bodega_id', document.getElementById('f-bod').value);
@@ -169,20 +164,18 @@
     }
 
     async function renderDashboard(data) {
-        const listContainer = document.getElementById('lista-evaluaciones');
         if(!data || data.length === 0) {
-            listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay datos.</td></tr>';
+            document.getElementById('lista-evaluaciones').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay auditorías registradas.</td></tr>';
             document.getElementById('main-score').innerText = "0%";
             document.getElementById('res-pre').innerHTML = "";
             return;
         }
 
         const avg = data.reduce((acc, v)=> acc + v.calificacion_final, 0) / data.length;
-        const scoreEl = document.getElementById('main-score');
-        scoreEl.innerText = avg.toFixed(1) + "%";
-        scoreEl.style.color = avg >= 90 ? 'var(--success)' : (avg >= 80 ? 'var(--warning)' : 'var(--danger)');
+        document.getElementById('main-score').innerText = avg.toFixed(1) + "%";
+        document.getElementById('main-score').style.color = avg >= 90 ? 'var(--success)' : (avg >= 80 ? 'var(--warning)' : 'var(--danger)');
 
-        listContainer.innerHTML = data.map(ev => `
+        document.getElementById('lista-evaluaciones').innerHTML = data.map(ev => `
             <tr onclick="verDetalle('${ev.id}', '${ev.bodegas.nombre}')">
                 <td>${new Date(ev.fecha).toLocaleDateString()}</td>
                 <td>${ev.auditores?.nombre || 'N/A'}</td>
@@ -192,7 +185,6 @@
 
         const ids = data.map(x => x.id);
         const { data: resp } = await _supabase.from('respuestas').select('cumple, configuracion_preguntas(pregunta)').in('evaluacion_id', ids);
-        
         const stats = {};
         (resp || []).forEach(r => {
             const p = r.configuracion_preguntas?.pregunta;
@@ -210,32 +202,102 @@
                 <div class="bar-label">${txt}</div>
                 <div class="bar-wrapper">
                     <div class="bar-bg"><div class="bar-fill" style="width:${p}%; background:${barColor}"></div></div>
-                    <div class="bar-percentage">${p.toFixed(0)}%</div>
+                    <div class="bar-percent">${p.toFixed(0)}%</div>
                 </div>
             </div>`;
         }).join('');
     }
 
     async function verDetalle(id, nombre) {
-        const { data } = await _supabase.from('respuestas').select('*, configuracion_preguntas(pregunta, titulo)').eq('evaluacion_id', id);
-        document.getElementById('modal-titulo').innerText = nombre;
-        
+        const { data } = await _supabase.from('respuestas').select('*, configuracion_preguntas(pregunta)').eq('evaluacion_id', id);
+        document.getElementById('modal-titulo').innerText = `Detalle: ${nombre}`;
         let html = '';
-        (data || []).forEach(r => {
+        data.forEach(r => {
             const fotos = r.foto_url ? r.foto_url.split(',') : [];
+            
+            // Lógica de resaltado de observaciones
+            const obsText = (r.observaciones || '').trim();
+            const esRelevante = obsText !== '' && obsText.toLowerCase() !== 'sin comentarios' && obsText.toLowerCase() !== 'sin comentarios.';
+            const claseObs = esRelevante ? 'obs-box obs-highlight' : 'obs-box';
+
             html += `<div style="padding:15px 0; border-bottom:1px solid #f0f0f0">
-                <p><strong>${r.configuracion_preguntas.pregunta}</strong></p>
-                <p style="font-size:0.85em; color:${r.cumple?'var(--success)':'var(--danger)'}">
-                    ${r.cumple?'CONFORME':'NO CONFORME'} | Puntos: ${r.puntos_obtenidos}
+                <p style="margin:0; font-size:1em; color:var(--primary);"><strong>${r.configuracion_preguntas.pregunta}</strong></p>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                    <span style="font-size:0.8em; font-weight:bold; color:${r.cumple?'var(--success)':'var(--danger)'}">${r.cumple?'✅ CONFORME':'❌ NO CONFORME'}</span>
+                    <span style="font-size:0.8em; color:#888;">Puntos: ${r.puntos_obtenidos}</span>
+                </div>
+                <p class="${claseObs}">
+                    <b>Observación:</b> ${obsText || 'Sin comentarios.'}
                 </p>
-                <p style="font-size:0.85em; color:#666;">Obs: ${r.observaciones || '-'}</p>
-                <div style="display:flex; flex-wrap:wrap;">
-                    ${fotos.map(f => `<img src="${f}" class="img-evidencia" onclick="window.open('${f}')">`).join('')}
+                <div style="display:flex; flex-wrap:wrap; margin-top:10px;">
+                    ${fotos.map(f => `<img src="${f}" class="img-evidencia" onclick="verFoto('${f}')">`).join('')}
                 </div>
             </div>`;
         });
         document.getElementById('modal-body').innerHTML = html;
         document.getElementById('modalDetalle').style.display = 'block';
+    }
+
+    // --- LÓGICA DEL VISOR CON ZOOM Y GESTOS ---
+    function verFoto(url) {
+        const modal = document.getElementById('modalFoto');
+        const img = document.getElementById('fotoGrande');
+        scale = 1; pointX = 0; pointY = 0;
+        img.src = url;
+        img.style.transform = `translate(0px, 0px) scale(1)`;
+        modal.style.display = 'flex';
+
+        // Zoom con Rueda
+        img.onwheel = function(e) {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.8 : 1.2;
+            scale = Math.min(Math.max(1, scale * factor), 5);
+            img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        };
+
+        // Arrastrar con Mouse
+        img.onmousedown = function(e) {
+            e.preventDefault();
+            start = { x: e.clientX - pointX, y: e.clientY - pointY };
+            isPanning = true;
+        };
+        window.onmousemove = function(e) {
+            if (!isPanning) return;
+            pointX = e.clientX - start.x;
+            pointY = e.clientY - start.y;
+            img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        };
+        window.onmouseup = function() { isPanning = false; };
+
+        // Gestos Táctiles (Pinch & Pan)
+        let initialDist = 0;
+        img.ontouchstart = function(e) {
+            if (e.touches.length === 2) {
+                initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            } else {
+                start = { x: e.touches[0].clientX - pointX, y: e.touches[0].clientY - pointY };
+            }
+        };
+        img.ontouchmove = function(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                let d = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                let zoom = d / initialDist;
+                scale = Math.min(Math.max(1, scale * zoom), 5);
+                initialDist = d;
+            } else if (scale > 1) {
+                e.preventDefault();
+                pointX = e.touches[0].clientX - start.x;
+                pointY = e.touches[0].clientY - start.y;
+            }
+            img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        };
+    }
+
+    function cerrarFoto() {
+        document.getElementById('modalFoto').style.display = 'none';
+        window.onmousemove = null;
+        window.onmouseup = null;
     }
 
     function cerrarModal() { document.getElementById('modalDetalle').style.display = 'none'; }
