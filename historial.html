@@ -17,6 +17,25 @@
         .filter-group label { display: block; font-size: 0.7rem; font-weight: bold; color: #666; margin-bottom: 4px; }
         select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em; outline: none; }
 
+        /* Botón CSV */
+        .btn-csv {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+        .btn-csv:hover { filter: brightness(0.95); }
+        .btn-csv:active { transform: translateY(1px); }
+
         /* Dashboard */
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -81,6 +100,9 @@
         <div class="filter-group"><label>📍 Unidad/Bodega</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
         <div class="filter-group"><label>📅 Mes</label><select id="f-mes" onchange="aplicarFiltros()"></select></div>
         <div class="filter-group"><label>🗓️ Año</label><input type="number" id="f-anio" onchange="aplicarFiltros()"></div>
+        <div class="filter-group" style="align-self:end;">
+            <button class="btn-csv" onclick="descargarCSVPromedio()">⬇️ CSV Promedio por Unidad</button>
+        </div>
     </div>
 
     <div class="summary-grid">
@@ -117,12 +139,15 @@
 </div>
 
 <script>
-    const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
+    const SUPABASE_URL = 'https://xjckzbegtvianurfvubp.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqY2t6YmVndHZpYW51cmZ2dWJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTYzMzUsImV4cCI6MjA4Mjc3MjMzNX0.64zrKi0p1KiDwtBODLRf8O4sRvnn0o9QyoQUYHvVFd0';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-	
+
     const urlParams = new URLSearchParams(window.location.search);
     const tipoArea = urlParams.get('tipo') || 'almacen';
+
+    // Cache del último resultado (para exportar CSV)
+    let lastEvaluaciones = [];
 
     // Variables de control de Zoom
     let scale = 1, pointX = 0, pointY = 0, isPanning = false, start = { x: 0, y: 0 };
@@ -160,7 +185,69 @@
         if(document.getElementById('f-bod').value) q = q.eq('bodega_id', document.getElementById('f-bod').value);
 
         const { data } = await q.order('fecha', {ascending: false});
+        lastEvaluaciones = data || [];
         renderDashboard(data);
+    }
+
+    function _csvEscape(v) {
+        const s = (v ?? '').toString();
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+
+    function descargarCSVPromedio() {
+        if (!lastEvaluaciones || lastEvaluaciones.length === 0) {
+            alert('No hay datos para exportar con los filtros actuales.');
+            return;
+        }
+
+        // Agrupar por bodega
+        const grp = {}; // bodega_id -> { nombre, sum, n }
+        lastEvaluaciones.forEach(ev => {
+            const bid = ev.bodega_id;
+            const nombre = ev?.bodegas?.nombre || 'N/A';
+            if (!grp[bid]) grp[bid] = { nombre, sum: 0, n: 0 };
+            grp[bid].sum += parseFloat(ev.calificacion_final) || 0;
+            grp[bid].n += 1;
+        });
+
+        const m = parseInt(document.getElementById('f-mes').value);
+        const y = parseInt(document.getElementById('f-anio').value);
+        const mesTxt = document.getElementById('f-mes').options[m]?.text || String(m + 1);
+
+        const rows = Object.values(grp)
+            .map(x => ({
+                unidad: x.nombre,
+                promedio: x.n > 0 ? (x.sum / x.n) : 0,
+                n: x.n
+            }))
+            .sort((a, b) => a.unidad.localeCompare(b.unidad, undefined, { sensitivity: 'base' }));
+
+        const headers = [
+            'tipo_area',
+            'anio',
+            'mes',
+            'unidad_bodega',
+            'cumplimiento_promedio',
+            'evaluaciones'
+        ].join(',') + '\n';
+
+        const body = rows.map(r => [
+            _csvEscape(tipoArea),
+            y,
+            _csvEscape(mesTxt),
+            _csvEscape(r.unidad),
+            (Math.round(r.promedio * 10) / 10).toFixed(1),
+            r.n
+        ].join(',')).join('\n');
+
+        const csv = "\uFEFF" + headers + body;
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `cumplimiento_promedio_${tipoArea}_${y}-${String(m + 1).padStart(2, '0')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
     }
 
     async function renderDashboard(data) {
