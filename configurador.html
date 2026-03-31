@@ -555,7 +555,99 @@ const getAreaURL = () => new URLSearchParams(window.location.search).get('tipo')
         const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `datos_${area}.csv`; a.click();
     }
+// --- FUNCIÓN PARA IMPORTAR CSV ---
+async function importarCSV() {
+    const fileInput = document.getElementById('csvFile');
+    const areaActual = getAreaURL();
 
+    if (!fileInput.files.length) return alert("Por favor, selecciona un archivo CSV.");
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+        const text = e.target.result;
+        // Dividir por líneas pero filtrar las vacías
+        const rows = text.split(/\r?\n/).filter(line => line.trim() !== "").slice(1); 
+        const nuevasPreguntas = [];
+
+        rows.forEach((row, index) => {
+            // EXPRESIÓN REGULAR MAESTRA: 
+            // Divide por comas pero IGNORA las comas que están dentro de comillas ""
+            const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+            const cols = row.split(regex).map(c => c.replace(/^"|"$/g, '').trim());
+            
+            // Validamos que la fila tenga datos mínimos
+            if (cols.length >= 4 && cols[2]) { 
+                nuevasPreguntas.push({
+                    titulo: cols[0],
+                    desglose: cols[1],
+                    pregunta: cols[2],
+                    ponderacion: parseFloat(cols[3]) || 0,
+                    aplica_a_departamento: cols[4] || 'TODOS',
+                    tipo: areaActual,
+                    activo: true
+                });
+            } else {
+                console.warn(`Fila ${index + 2} omitida por formato incorrecto:`, cols);
+            }
+        });
+
+        if (nuevasPreguntas.length === 0) {
+            return alert("No se encontraron datos válidos. Revisa que el formato sea: titulo, desglose, pregunta, ponderacion, aplica_a_departamento");
+        }
+
+        if (confirm(`Se detectaron ${nuevasPreguntas.length} preguntas. ¿Deseas subirlas a ${areaActual}?`)) {
+            const { error } = await _supabase.from('configuracion_preguntas').insert(nuevasPreguntas);
+            if (error) {
+                alert("Error de Supabase: " + error.message);
+            } else {
+                alert("✅ ¡Importación exitosa!");
+                cargarPreguntas();
+                fileInput.value = ""; // Limpiar input
+            }
+        }
+    };
+    // Usamos UTF-8 para asegurar que los acentos y la "ñ" se vean bien
+    reader.readAsText(file, 'UTF-8');
+}
+
+// --- FUNCIÓN PARA EXPORTAR TODO EL SISTEMA (JSON) ---
+async function exportarDatos() {
+    const area = getAreaURL();
+    const { data: p } = await _supabase.from('configuracion_preguntas').select('*').eq('tipo', area);
+    const { data: b } = await _supabase.from('bodegas').select('*').eq('tipo', area);
+    const { data: a } = await _supabase.from('auditores').select('*');
+
+    const backup = { area, preguntas: p, bodegas: b, auditores: a, fecha: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup_${area}_${new Date().toLocaleDateString()}.json`;
+    link.click();
+}
+
+// --- FUNCIÓN PARA RESTAURAR RESPALDO (JSON) ---
+async function importarJSON() {
+    const fileInput = document.getElementById('jsonFile');
+    if (!fileInput.files.length) return alert("Selecciona un archivo .json");
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (confirm("¿Restaurar respaldo? Esto podría duplicar datos si ya existen.")) {
+                if (data.preguntas) await _supabase.from('configuracion_preguntas').insert(data.preguntas.map(({id, ...rest}) => rest));
+                if (data.bodegas) await _supabase.from('bodegas').insert(data.bodegas.map(({id, ...rest}) => rest));
+                alert("✅ Restauración completada.");
+                location.reload();
+            }
+        } catch (err) { alert("Error al leer JSON: " + err.message); }
+    };
+    reader.readAsText(file);
+}
     init();
 </script>
 </body>
