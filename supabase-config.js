@@ -1,0 +1,40 @@
+window.APP_VERSION = 'v2026.03.30.1';
+window.SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
+window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
+
+if (window.supabase && typeof window.supabase.createClient === 'function') {
+  window._supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
+}
+
+(function renderVersionBadge() {
+  function applyBadge() {
+    if (document.getElementById('app-version-badge')) return;
+
+    const badge = document.createElement('div');
+    badge.id = 'app-version-badge';
+    badge.textContent = window.APP_VERSION || '';
+    badge.style.position = 'fixed';
+    badge.style.top = '8px';
+    badge.style.right = '12px';
+    badge.style.zIndex = '10000';
+    badge.style.fontFamily = 'Segoe UI, sans-serif';
+    badge.style.fontSize = '11px';
+    badge.style.lineHeight = '1';
+    badge.style.padding = '4px 8px';
+    badge.style.borderRadius = '999px';
+    badge.style.background = 'rgba(44, 62, 80, 0.08)';
+    badge.style.color = 'rgba(44, 62, 80, 0.75)';
+    badge.style.border = '1px solid rgba(44, 62, 80, 0.12)';
+    badge.style.backdropFilter = 'blur(4px)';
+    badge.style.pointerEvents = 'none';
+    badge.style.userSelect = 'none';
+
+    document.body.appendChild(badge);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyBadge);
+  } else {
+    applyBadge();
+  }
+})();

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Historial de Auditoría Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --bg: #f4f7f6; --reparto: #8e44ad; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
@@ -97,6 +98,7 @@
 
     <div class="filter-card">
         <div class="filter-group"><label>👤 Auditor</label><select id="f-aud" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+        <div class="filter-group"><label>📌 Localización</label><select id="f-loc" onchange="onChangeLocalizacion()"><option value="">Todas</option></select></div>
         <div class="filter-group"><label>📍 Unidad/Bodega</label><select id="f-bod" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
         <div class="filter-group"><label>📅 Mes</label><select id="f-mes" onchange="aplicarFiltros()"></select></div>
         <div class="filter-group"><label>🗓️ Año</label><input type="number" id="f-anio" onchange="aplicarFiltros()"></div>
@@ -118,7 +120,8 @@
 
     <div class="table-container">
         <table>
-            <thead><tr><th>Fecha</th><th>Auditor</th><th>Ubicación/Ruta</th><th>Resultado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Auditor</th>
+                    <th>Operador</th><th>Ubicación/Ruta</th><th>Resultado</th></tr></thead>
             <tbody id="lista-evaluaciones"></tbody>
         </table>
     </div>
@@ -139,15 +142,13 @@
 </div>
 
 <script>
-    const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
     const tipoArea = urlParams.get('tipo') || 'almacen';
 
     // Cache del último resultado (para exportar CSV)
     let lastEvaluaciones = [];
+    let bodegasData = [];
 
     // Variables de control de Zoom
     let scale = 1, pointX = 0, pointY = 0, isPanning = false, start = { x: 0, y: 0 };
@@ -164,11 +165,38 @@
         document.getElementById('f-anio').value = h.getFullYear();
 
         const { data: a } = await _supabase.from('auditores').select('*').eq('activo', true).order('nombre');
-        const { data: b } = await _supabase.from('bodegas').select('*').eq('tipo', tipoArea).order('nombre');
+        const { data: b } = await _supabase.from('bodegas').select('*').eq('tipo', tipoArea).order('localizacion');
 
         document.getElementById('f-aud').innerHTML += (a || []).map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
-        document.getElementById('f-bod').innerHTML += (b || []).map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
 
+        bodegasData = (b || []);
+        // Localizaciones únicas (para selector)
+        const locs = [...new Set(bodegasData.map(x => (x.localizacion || '').trim()).filter(Boolean))]
+            .sort((x, y) => x.localeCompare(y, undefined, { sensitivity: 'base' }));
+        document.getElementById('f-loc').innerHTML = '<option value="">Todas</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
+
+        // Todas las bodegas (se filtrarán por localización cuando se elija una)
+        document.getElementById('f-bod').innerHTML = '<option value="">Todas</option>' + bodegasData.map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
+
+
+        aplicarFiltros();
+    }
+
+    function onChangeLocalizacion() {
+        // Al elegir localización, actualizamos el combo de bodegas/unidades
+        const loc = document.getElementById('f-loc').value;
+        const selBod = document.getElementById('f-bod');
+        const actual = selBod.value;
+
+        const lista = !loc ? bodegasData : bodegasData.filter(b => (b.localizacion || '').trim() === loc);
+        selBod.innerHTML = '<option value="">Todas</option>' + lista.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('');
+
+        // Si la bodega seleccionada ya no existe en la lista, se limpia
+        if (actual && !lista.some(x => String(x.id) === String(actual))) {
+            selBod.value = '';
+        } else {
+            selBod.value = actual;
+        }
         aplicarFiltros();
     }
 
@@ -182,11 +210,46 @@
                 .eq('tipo', tipoArea).gte('fecha', ini).lte('fecha', fin);
 
         if(document.getElementById('f-aud').value) q = q.eq('auditor_id', document.getElementById('f-aud').value);
+
+        const loc = document.getElementById('f-loc').value;
+        // Filtrar por campo de la tabla relacionada bodegas (localizacion)
+        if (loc) q = q.eq('bodegas.localizacion', loc);
+
         if(document.getElementById('f-bod').value) q = q.eq('bodega_id', document.getElementById('f-bod').value);
 
         const { data } = await q.order('fecha', {ascending: false});
         lastEvaluaciones = data || [];
-        renderDashboard(data);
+
+        // --- Operador para auditor MONTACARGAS (se extrae de respuestas.observaciones: [Operador: ...]) ---
+        try {
+            const mcIds = (lastEvaluaciones || [])
+                .filter(ev => ((ev.auditores?.nombre || '') + '').trim().toLowerCase() === 'montacargas')
+                .map(ev => ev.id);
+
+            if (mcIds.length > 0) {
+                const { data: resp } = await _supabase
+                    .from('respuestas')
+                    .select('evaluacion_id, observaciones')
+                    .in('evaluacion_id', mcIds);
+
+                const extraer = (txt) => {
+                    const t = (txt || '').toString();
+                    const m = t.match(/\[Operador:\s*([^\]]+)\]/i);
+                    return m ? m[1].trim() : '';
+                };
+
+                const map = {};
+                for (const r of (resp || [])) {
+                    if (!map[r.evaluacion_id]) {
+                        const op = extraer(r.observaciones);
+                        if (op) map[r.evaluacion_id] = op;
+                    }
+                }
+                lastEvaluaciones = lastEvaluaciones.map(ev => ({ ...ev, operador: map[ev.id] || '' }));
+            }
+        } catch(e) { /* silencioso */ }
+
+        renderDashboard(lastEvaluaciones);
     }
 
     function _csvEscape(v) {
@@ -252,7 +315,7 @@
 
     async function renderDashboard(data) {
         if(!data || data.length === 0) {
-            document.getElementById('lista-evaluaciones').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay auditorías registradas.</td></tr>';
+            document.getElementById('lista-evaluaciones').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#999;">No hay auditorías registradas.</td></tr>';
             document.getElementById('main-score').innerText = "0%";
             document.getElementById('res-pre').innerHTML = "";
             return;
@@ -266,6 +329,7 @@
             <tr onclick="verDetalle('${ev.id}', '${ev.bodegas.nombre}')">
                 <td>${new Date(ev.fecha).toLocaleDateString()}</td>
                 <td>${ev.auditores?.nombre || 'N/A'}</td>
+                <td>${ev.operador || '-'}</td>
                 <td>${ev.bodegas.nombre}</td>
                 <td style="font-weight:bold; color:${ev.calificacion_final>=90?'var(--success)':'var(--danger)'}">${ev.calificacion_final}%</td>
             </tr>`).join('');

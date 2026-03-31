@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Realizar Auditoría Pro - Dinámica</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <style>
         :root { --primary: #2c3e50; --success: #27ae60; --danger: #e74c3c; --bg: #f0f2f5; --accent: #3498db; }
         body { 
@@ -73,7 +74,9 @@
         .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
         .btn-del-foto { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-        #btn-finalizar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 50px; font-size: 1.2em; font-weight: bold; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 1000; }
+        
+        .thumb-size { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; padding: 2px 5px; border-radius: 10px; line-height: 1; }
+#btn-finalizar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 50px; font-size: 1.2em; font-weight: bold; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 1000; }
         #btn-finalizar:disabled { background: #95a5a6; }
         select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; background: #fff; margin-top: 5px; }
     </style>
@@ -106,10 +109,7 @@
 <button id="btn-finalizar" onclick="enviarEvaluacion()">💾 Guardar Evaluación</button>
 
 <script>
-    const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-	
+
     const urlParams = new URLSearchParams(window.location.search);
     const tipoAuditoria = urlParams.get('tipo') || 'almacen';
 
@@ -129,43 +129,230 @@
         bodegasData = b;
         document.getElementById('selectBodega').innerHTML = '<option value="">Selecciona Unidad...</option>' + b.map(x => `<option value="${x.id}">${x.localizacion} | ${x.nombre}</option>`).join('');
 
-        const { data: p } = await _supabase.from('configuracion_preguntas').select('*').eq('tipo', tipoAuditoria);
+        const { data: p, error: pErr } = await _supabase.from('configuracion_preguntas').select('*').eq('tipo', tipoAuditoria).eq('activo', true);
+        if(pErr){ console.error(pErr); alert('Error cargando preguntas: ' + (pErr.message || pErr)); return; }
         preguntasMaestras = p.sort((a, b) => a.desglose.localeCompare(b.desglose, undefined, { numeric: true }));
+        // Montacargas: si viene QR/unidad en el link, auto-seleccionar y pedir auditor/operador (texto)
+        await montacargasBoot();
     }
 
     // --- NUEVA FUNCIÓN DE COMPRESIÓN ---
     async function comprimirImagen(archivo) {
+        // --- COMPRESIÓN MUY AGRESIVA (tope 150 KB + downscale) ---
+        const TARGET_BYTES = 150 * 1024;  // 150 KB máximo (objetivo)
+        const MAX_DIM = 800;              // máx. dimensión (ancho o alto)
+        const MAX_MEGA_PIXELS = 1.2;      // tope de MP (más agresivo)
+
+        const QUALITY_START = 0.55;
+        const QUALITY_MIN = 0.30;
+        const QUALITY_STEP = 0.07;
+
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.readAsDataURL(archivo);
+
             reader.onload = (event) => {
                 const img = new Image();
                 img.src = event.target.result;
-                img.onload = () => {
+
+                img.onload = async () => {
+                    let w = img.width;
+                    let h = img.height;
+
+                    // 1) Escalado por MAX_DIM (sin upscaling)
+                    const scaleDim = Math.min(1, MAX_DIM / Math.max(w, h));
+                    w = Math.round(w * scaleDim);
+                    h = Math.round(h * scaleDim);
+
+                    // 2) Tope por megapíxeles (por si vienen muy grandes)
+                    const mp = (w * h) / 1_000_000;
+                    if (mp > MAX_MEGA_PIXELS) {
+                        const factor = Math.sqrt(MAX_MEGA_PIXELS / mp);
+                        w = Math.round(w * factor);
+                        h = Math.round(h * factor);
+                    }
+
                     const canvas = document.createElement('canvas');
-                    // Ajustamos el tamaño máximo (ej. 1200px de ancho)
-                    const MAX_WIDTH = 1200;
-                    const scaleSize = MAX_WIDTH / img.width;
-                    canvas.width = MAX_WIDTH;
-                    canvas.height = img.height * scaleSize;
-
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                    // Convertimos a Blob con calidad 0.7 (70%)
-                    ctx.canvas.toBlob((blob) => {
-                        const file = new File([blob], archivo.name, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now()
-                        });
-                        resolve(file);
-                    }, 'image/jpeg', 0.7);
+                    const blobFrom = (quality) =>
+                        new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', quality));
+
+                    let blob = null;
+
+                    // Hasta 7 pases: comprime, y si sigue pesado, reduce tamaño 15% y reintenta
+                    for (let pass = 0; pass < 7; pass++) {
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.clearRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+
+                        // Bajar calidad progresivamente
+                        let quality = QUALITY_START;
+                        for (let i = 0; i < 7; i++) {
+                            blob = await blobFrom(quality);
+                            if (!blob) break;
+
+                            if (blob.size <= TARGET_BYTES) break;
+                            if (quality <= QUALITY_MIN) break;
+
+                            quality = Math.max(QUALITY_MIN, quality - QUALITY_STEP);
+                        }
+
+                        // Si ya quedó <= 150KB, listo
+                        if (blob && blob.size <= TARGET_BYTES) break;
+
+                        // Si no quedó, baja tamaño y reintenta
+                        w = Math.round(w * 0.85);
+                        h = Math.round(h * 0.85);
+
+                        // Límite para no hacer miniaturas demasiado pequeñas
+                        if (Math.max(w, h) < 520) break;
+                    }
+
+                    // Fallback final
+                    if (!blob) {
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        blob = await blobFrom(QUALITY_MIN);
+                    }
+
+                    const file = new File(
+                        [blob],
+                        archivo.name.replace(/\.\w+$/, '') + '.jpg',
+                        { type: 'image/jpeg', lastModified: Date.now() }
+                    );
+
+                    resolve(file);
                 };
             };
         });
     }
 
-    function filtrarYRenderizar() {
+    
+    // --- Montacargas: URL -> unidad automática + auditor/operador MANUALES (sin registrar en auditores) ---
+    // Guardamos auditor/operador como TEXTO en respuestas.observaciones para evitar cambios de RLS/esquema.
+        let __mc_operador = "";
+
+    function _mc_norm(s){ return (s ?? '').toString().trim().toLowerCase(); }
+
+    function _mc_pickKey(raw){
+        const t = decodeURIComponent((raw || '').trim());
+        if (!t) return '';
+        // si viene "aguascalientes | m1" tomar el último token
+        const parts = t.split('|').map(x=>x.trim()).filter(Boolean);
+        const last = parts.length ? parts[parts.length-1] : t;
+        return _mc_norm(last);
+    }
+
+    function _mc_matchLocal(key){
+        if (!key) return null;
+        const tight = key.replace(/\s+/g,'');
+        return (bodegasData || []).find(b => {
+            const loc = _mc_norm(b.localizacion);
+            const nom = _mc_norm(b.nombre);
+            const combo = _mc_norm(`${b.localizacion} | ${b.nombre}`);
+            const locT = loc.replace(/\s+/g,'');
+            const nomT = nom.replace(/\s+/g,'');
+            return loc === key || nom === key || combo === key
+                || locT === tight || nomT === tight
+                || nom.startsWith(key) || loc.startsWith(key) || combo.includes(key);
+        }) || null;
+    }
+
+    async function _mc_selectUnidadFromURL(){
+        if (tipoAuditoria !== 'montacargas') return false;
+
+        const unidadId = urlParams.get('unidad') || urlParams.get('bodega') || urlParams.get('unidad_id');
+        const qrRaw = urlParams.get('qr');
+
+        let selected = null;
+
+        if (unidadId) {
+            selected = (bodegasData || []).find(b => b.id == unidadId) || null;
+            if (!selected) {
+                const { data } = await _supabase.from('bodegas').select('*').eq('id', unidadId).limit(1);
+                if (data && data[0]) selected = data[0];
+            }
+        } else if (qrRaw) {
+            const key = _mc_pickKey(qrRaw);
+            selected = _mc_matchLocal(key);
+            if (!selected && key) {
+                const { data } = await _supabase.from('bodegas').select('*')
+                    .or(`nombre.ilike.%${key}%,localizacion.ilike.%${key}%`)
+                    .limit(10);
+                if (data && data.length) {
+                    selected = data.find(b => _mc_norm(b.nombre) === key || _mc_norm(b.localizacion) === key) || data[0];
+                    bodegasData = (bodegasData || []).concat(data.filter(x => !(bodegasData || []).some(b => b.id === x.id)));
+                }
+            }
+        }
+
+        if (selected) {
+            const sel = document.getElementById('selectBodega');
+            if (sel && !Array.from(sel.options).some(o => o.value == selected.id)) {
+                sel.innerHTML += `<option value="${selected.id}">${selected.localizacion} | ${selected.nombre}</option>`;
+            }
+            if (sel) sel.value = selected.id;
+            return true;
+        }
+        return false;
+    }
+
+    
+    function _mc_autoPickAuditor() {
+        const sel = document.getElementById('selectAuditor');
+        if (!sel) return '';
+        // Si ya hay auditor seleccionado, regresar
+        if (sel.value) return sel.value;
+
+        const opts = Array.from(sel.options || []).filter(o => (o.value || '').trim() !== '');
+        if (opts.length === 0) return '';
+
+        // 1) Elegir auditor llamado "montacargas" (case-insensitive)
+        const mt = opts.find(o => (o.textContent || '').trim().toLowerCase() === 'montacargas');
+        if (mt) { sel.value = mt.value; return sel.value; }
+
+        // 2) Preferir SISTEMA/AUTO si existe
+        const preferred = opts.find(o => (o.textContent || '').toUpperCase().includes('SISTEMA') || (o.textContent || '').toUpperCase().includes('AUTO'));
+        sel.value = (preferred ? preferred.value : opts[0].value);
+        return sel.value;
+    }
+
+    function _mc_hideAuditorSelector() {
+        const row = document.getElementById('selectAuditor')?.closest('div');
+        if (row) row.style.display = 'none';
+    }
+
+async function montacargasBoot() {
+        if (tipoAuditoria !== 'montacargas') return;
+
+        // Para Montacargas: seleccionamos automáticamente el auditor registrado llamado "montacargas".
+        const okUnidad = await _mc_selectUnidadFromURL();
+        if (!okUnidad) return; // si no viene QR/unidad, no hacemos nada especial
+
+        // Pedir operador (texto)
+        const opTxt = (window.prompt("Nombre del operador del montacargas:", __mc_operador || "") || "").trim();
+        if (!opTxt) { alert("⚠️ Necesito el nombre del operador."); return; }
+        __mc_operador = opTxt;
+
+        // Seleccionar automáticamente un auditor REGISTRADO para cumplir con la BD (sin pedirlo al usuario)
+        const picked = _mc_autoPickAuditor();
+        if (!picked) {
+            alert("⚠️ No hay auditores registrados en el catálogo. Agrega al menos 1 auditor en Supabase para poder guardar.");
+            return;
+        }
+        _mc_hideAuditorSelector();
+
+
+        // Ya con unidad+operador, se cargan las preguntas y se guarda con el auditor "montacargas".
+        // Si quieres auto-abrir preguntas:
+        filtrarYRenderizar();
+    }
+    // --- END Montacargas ---
+
+function filtrarYRenderizar() {
         const bodegaId = document.getElementById('selectBodega').value;
         if (!bodegaId) {
             document.getElementById('renderArea').innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Seleccione una ubicación.</p>';
@@ -309,7 +496,7 @@
             reader.onload = (e) => {
                 const container = document.createElement("div");
                 container.className = "thumb-container";
-                container.innerHTML = `<img src="${e.target.result}" class="thumb"><button class="btn-del-foto" onclick="borrarFoto(${i}, ${index})">×</button>`;
+                container.innerHTML = `<img src="${e.target.result}" class="thumb"><div class="thumb-size">${Math.round(file.size / 1024)} KB</div><button class="btn-del-foto" onclick="borrarFoto(${i}, ${index})">×</button>`;
                 div.appendChild(container);
             }
             reader.readAsDataURL(file);
@@ -327,6 +514,11 @@
         const btn = document.getElementById('btn-finalizar');
         
         if (!audId || !bodId) return alert("⚠️ Selecciona Auditor y Ubicación.");
+        if (tipoAuditoria === 'montacargas') {
+            if (!__mc_operador) return alert("⚠️ Falta el operador. Abre de nuevo el QR.");
+            const selAud = document.getElementById('selectAuditor');
+            if (selAud && !selAud.value) _mc_autoPickAuditor();
+        }
         if (preguntasFiltradas.length === 0) return alert("No hay preguntas para evaluar.");
 
         btn.innerText = "⏳ Guardando...";
@@ -359,7 +551,7 @@
             }
             respuestas.push({
                 pregunta_id: preguntasFiltradas[i].id, cumple: isC, puntos_obtenidos: pts,
-                observaciones: document.getElementById(`obs-${i}`).value, foto_url: urls.join(',')
+                observaciones: (tipoAuditoria==='montacargas' ? `[Operador: ${__mc_operador || 'N/A'}] ` : '') + (document.getElementById(`obs-${i}`).value || ''), foto_url: urls.join(',')
             });
         }
 

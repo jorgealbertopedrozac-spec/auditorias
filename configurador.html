@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Configurador Maestro - Auditoría Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <style>
         :root { 
             --primary: #2c3e50; 
@@ -79,7 +80,7 @@
         .tag-depto { font-size: 0.7em; background: #e2e8f0; color: #4a5568; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-top: 4px; }
 
         /* ESTILOS DE LA PANTALLA DE BLOQUEO */
-        #lock-screen {
+        #auth-screen {
             position: fixed;
             top: 0;
             left: 0;
@@ -119,30 +120,64 @@
             .grid-3 { grid-template-columns: 1fr; }
         }
     </style>
+
+<style>
+  #top-nav-bar{
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  #top-nav-bar .btn-action{
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+    font-size: 0.85em !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+  }
+  @media (max-width: 640px){
+    #top-nav-bar .btn-action{
+      padding: 10px 14px !important;
+      font-size: 0.9em !important;
+    }
+  }
+</style>
+
 </head>
 <body>
 
-<div id="lock-screen">
+
+<div id="top-nav-bar">
+  <a id="btn-volver-menu" href="index.html" class="btn-action btn-blue" style="text-decoration:none; display:inline-block;">⬅ Regresar</a>
+  <button id="btn-logout" class="btn-action btn-blue" style="display:none;" onclick="logout()">Cerrar sesión</button>
+</div>
+<div id="auth-screen">
     <div class="lock-box">
-        <h1 style="margin: 0 0 15px 0; font-size: 3em;">🔒</h1>
-        <h3 style="margin: 0 0 20px 0;">Acceso Restringido</h3>
-        
-        <input type="password" id="admin-pass" class="lock-input" placeholder="Contraseña..." onkeyup="verificarEnter(event)">
+        <h1 style="margin: 0 0 15px 0; font-size: 3em;">🔐</h1>
+        <h3 style="margin: 0 0 20px 0;">Iniciar sesión</h3>
+
+        <input type="email" id="login-email" class="lock-input" placeholder="Correo..." autocomplete="username">
+        <input type="password" id="login-pass" class="lock-input" placeholder="Contraseña..." autocomplete="current-password" onkeyup="verificarEnterLogin(event)">
+
         <br>
-        <button onclick="desbloquear()" class="btn-action btn-green" style="width: 200px;">Desbloquear</button>
-        
-        <p id="lock-msg" style="color: #ff7675; margin-top: 10px; display: none; font-weight: bold;">Contraseña Incorrecta</p>
-        
+        <button onclick="login()" class="btn-action btn-green" style="width: 200px;">Entrar</button>
+
+        <p id="login-msg" style="color: #ff7675; margin-top: 10px; display: none; font-weight: bold;"></p>
+
         <div style="margin-top: 20px;">
             <a href="index.html" style="color: #bdc3c7; text-decoration: none; font-size: 0.9em;">⬅ Volver al Menú</a>
         </div>
     </div>
 </div>
 
-<div style="max-width: 1100px; margin: auto; padding: 5px 0;">
-    <a id="btn-volver-menu" href="index.html" style="background: #ecf0f1; color: #2c3e50; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.75em; border: 1px solid #ddd;">⬅ Volver</a>
-</div>
-    
+
 <div class="container">
     <div id="area-label" class="area-indicator">Cargando área...</div>
     <h2>⚙️ Configurador Maestro</h2>
@@ -219,48 +254,92 @@
 </div>
 
 <script>
-    // --- LÓGICA DE BLOQUEO DE PANTALLA ---
-    const PASSWORD_SECRET = "admin123"; // <--- CAMBIA TU CONTRASEÑA AQUÍ
+    // --- LOGIN (SUPABASE AUTH) ---
+    async function updateAuthUI() {
+        const { data } = await _supabase.auth.getSession();
+        const session = data?.session;
 
-    function desbloquear() {
-        const input = document.getElementById('admin-pass');
-        const msg = document.getElementById('lock-msg');
-        const lockScreen = document.getElementById('lock-screen');
+        const authScreen = document.getElementById('auth-screen');
+        const logoutBtn = document.getElementById('btn-logout');
 
-        if (input.value === PASSWORD_SECRET) {
-            lockScreen.style.transition = "opacity 0.5s ease";
-            lockScreen.style.opacity = "0";
-            setTimeout(() => {
-                lockScreen.style.display = "none";
-            }, 500);
+        if (session) {
+            // Ocultar login
+            authScreen.style.transition = "opacity 0.25s ease";
+            authScreen.style.opacity = "0";
+            setTimeout(() => { authScreen.style.display = "none"; }, 200);
+            if (logoutBtn) logoutBtn.style.display = "inline-block";
+            return true;
         } else {
-            msg.style.display = "block";
-            input.value = "";
-            input.focus();
-            input.style.border = "2px solid #e74c3c";
-            setTimeout(() => input.style.border = "none", 500);
+            authScreen.style.display = "flex";
+            authScreen.style.opacity = "1";
+            if (logoutBtn) logoutBtn.style.display = "none";
+            return false;
         }
     }
 
-    function verificarEnter(event) {
-        if (event.key === "Enter") {
-            desbloquear();
+    async function login() {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-pass').value;
+        const msg = document.getElementById('login-msg');
+
+        msg.style.display = "none";
+        msg.innerText = "";
+
+        if (!email || !password) {
+            msg.innerText = "Captura correo y contraseña.";
+            msg.style.display = "block";
+            return;
         }
+
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.error(error);
+            msg.innerText = error.message || "No se pudo iniciar sesión.";
+            msg.style.display = "block";
+            return;
+        }
+
+        await updateAuthUI();
+        // Cargar data ya logueado
+        await initAfterAuth();
+    }
+
+    async function logout() {
+        await _supabase.auth.signOut();
+        await updateAuthUI();
+    }
+
+    function verificarEnterLogin(event) {
+        if (event.key === "Enter") login();
     }
     // --------------------------------------
 
-    const SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-	
-    const getAreaURL = () => new URLSearchParams(window.location.search).get('tipo') || 'almacen';
+
+    
+    _supabase.auth.onAuthStateChange(() => { updateAuthUI(); });
+const getAreaURL = () => new URLSearchParams(window.location.search).get('tipo') || 'almacen';
     let editandoId = null;
     let departamentosUnicos = [];
 
     async function init() {
+        // Primero, validar sesión
+        const ok = await updateAuthUI();
+        if (!ok) return;
+        await initAfterAuth();
+    }
+
+    async function initAfterAuth() {
+        // Link de regreso al menú por tipo
+        try {
+            const tipoArea = getAreaURL();
+            const backBtn = document.getElementById('btn-volver-menu');
+            if (backBtn) backBtn.href = `menu_area.html?tipo=${tipoArea}`;
+        } catch(e) {}
+
         const tipoArea = getAreaURL();
         document.getElementById('area-label').innerText = `MODO: ${tipoArea.toUpperCase()}`;
         document.getElementById('btn-volver-menu').href = `menu_area.html?tipo=${tipoArea}`;
+        const b2 = document.getElementById('btn-volver-menu2'); if (b2) b2.href = `menu_area.html?tipo=${tipoArea}`;
         await cargarBodegas();
         await cargarAuditores();
         cargarPreguntas();
@@ -274,7 +353,8 @@
 
     async function cargarPreguntas() {
         const areaActual = getAreaURL();
-        const { data } = await _supabase.from('configuracion_preguntas').select('*').eq('tipo', areaActual);
+        const { data, error } = await _supabase.from('configuracion_preguntas').select('*').eq('tipo', areaActual).eq('activo', true);
+        if (error) { console.error(error); alert('Error cargando preguntas: ' + (error.message || error)); return; }
         if(!data) return;
 
         data.sort((a, b) => a.desglose.localeCompare(b.desglose, undefined, { numeric: true }));
@@ -356,7 +436,8 @@
             pregunta: document.getElementById('p-pre').value, 
             ponderacion: parseFloat(document.getElementById('p-pts').value), 
             tipo: getAreaURL(), 
-            aplica_a_departamento: document.getElementById('p-depto-filtro').value 
+            aplica_a_departamento: document.getElementById('p-depto-filtro').value,
+            activo: true
         };
         if(editandoId) await _supabase.from('configuracion_preguntas').update(payload).eq('id', editandoId);
         else await _supabase.from('configuracion_preguntas').insert([payload]);
@@ -429,18 +510,46 @@
     }
 
     async function eliminarRegistro(tabla, id) {
-        if(confirm("¿Eliminar registro?")) { 
-            await _supabase.from(tabla).delete().eq('id', id); 
-            if(tabla==='auditores') cargarAuditores();
-            else if(tabla==='bodegas') cargarBodegas();
+        if (!confirm("¿Eliminar registro?")) return;
+
+        try {
+            // ✅ Preguntas: NO se borran físicamente para no romper historial -> se desactivan (soft delete)
+            if (tabla === 'configuracion_preguntas') {
+                const { error } = await _supabase
+                    .from('configuracion_preguntas')
+                    .update({ activo: false })
+                    .eq('id', id);
+
+                if (error) throw error;
+                await cargarPreguntas();
+                return;
+            }
+
+            // Otros catálogos: borrado normal
+            const { error } = await _supabase.from(tabla).delete().eq('id', id);
+            if (error) throw error;
+
+            if (tabla === 'auditores') cargarAuditores();
+            else if (tabla === 'bodegas') cargarBodegas();
             else cargarPreguntas();
+
+        } catch (e) {
+            console.error(e);
+            const msg = (e && (e.message || e.details || e.hint)) ? (e.message || e.details || e.hint) : String(e);
+
+            // Mensaje amigable para el caso típico (FK / conflicto)
+            if (String(e?.code || '').includes('23503') || String(msg).toLowerCase().includes('foreign key') || String(msg).includes('409')) {
+                alert("No se puede eliminar porque ya tiene registros relacionados (historial).\n\nEsta app ahora DESACTIVA preguntas en vez de borrarlas.\nSi sigues viendo este error, asegúrate de tener la columna 'activo' (boolean) en 'configuracion_preguntas'.");
+            } else {
+                alert("Error eliminando: " + msg);
+            }
         }
     }
 
     // Funciones de Backup (Se mantienen iguales)
     async function descargarDatosCSV() {
         const area = getAreaURL();
-        const { data: p } = await _supabase.from('configuracion_preguntas').select('titulo, desglose, pregunta, ponderacion, aplica_a_departamento').eq('tipo', area);
+        const { data: p } = await _supabase.from('configuracion_preguntas').select('titulo, desglose, pregunta, ponderacion, aplica_a_departamento').eq('tipo', area).eq('activo', true);
         const headers = "titulo,desglose,pregunta,ponderacion,aplica_a_departamento\n";
         const rows = p.map(p => [`"${p.titulo}"`, `"${p.desglose}"`, `"${p.pregunta}"`, p.ponderacion, `"${p.aplica_a_departamento}"`].join(",")).join("\n");
         const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
