@@ -1,6 +1,6 @@
 window.APP_VERSION = 'v2026.03.30.1';
 window.SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
+window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzWIiOiIm11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
 
 if (window.supabase && typeof window.supabase.createClient === 'function') {
   window._supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
@@ -13,12 +13,14 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
     const badge = document.createElement('div');
     badge.id = 'app-version-badge';
     badge.textContent = window.APP_VERSION || '';
+
     badge.style.position = 'fixed';
-    badge.style.top = '8px';
-    badge.style.right = '12px';
-    badge.style.zIndex = '10000';
+    badge.style.top = 'auto';
+    badge.style.bottom = '10px';
+    badge.style.right = '10px';
+    badge.style.zIndex = '900';
     badge.style.fontFamily = 'Segoe UI, sans-serif';
-    badge.style.fontSize = '11px';
+    badge.style.fontSize = '10px';
     badge.style.lineHeight = '1';
     badge.style.padding = '4px 8px';
     badge.style.borderRadius = '999px';
@@ -28,6 +30,13 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
     badge.style.backdropFilter = 'blur(4px)';
     badge.style.pointerEvents = 'none';
     badge.style.userSelect = 'none';
+
+    const path = (window.location.pathname || '').toLowerCase();
+    const isEvaluacion = path.includes('evaluacion.html');
+
+    if (isEvaluacion) {
+      badge.style.bottom = '95px';
+    }
 
     document.body.appendChild(badge);
   }
