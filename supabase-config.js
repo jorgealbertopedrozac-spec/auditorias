@@ -1,6 +1,6 @@
 window.APP_VERSION = 'v2026.03.30.1';
 window.SUPABASE_URL = 'https://muoahpunqywzvuspmmhg.supabase.co';
-window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzWIiOiIm11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
+window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11b2FocHVucXl3enZ1c3BtbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NzEyNDMsImV4cCI6MjA4NTA0NzI0M30.rN9lnxWIgH2BrGunBz2mp6Pt6C6ZvNelzs8G6PGg2VY';
 
 if (window.supabase && typeof window.supabase.createClient === 'function') {
   window._supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
